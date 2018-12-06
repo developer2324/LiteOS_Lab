@@ -114,9 +114,9 @@ Scons构建工具通过Python2.7编写，其它Python版本可能不兼容。因
 
 解决方案：
 
--　查看系统环境变量是否正确配置。
+ -　查看系统环境变量是否正确配置。
 
--　查找电脑中是否有文件与Compiler-GCC(GNU Tools ARM Embedded)重名。若有请将其删除。
+ -　查找电脑中是否有文件与Compiler-GCC(GNU Tools ARM Embedded)重名。若有请将其删除。
 
 ### 8.2路径有误
 若开发者在安装过程中修改了默认的安装路径，需要在scons_new.bat中的路径做相应的修改。
