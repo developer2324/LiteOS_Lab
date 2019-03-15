@@ -302,6 +302,9 @@ typedef struct tagTaskCB
 #if (LOSCFG_LIB_LIBC_NEWLIB_REENT == YES)
     struct _reent stNewLibReent;                            /**< NewLib _reent struct        */
 #endif
+#if (LOSCFG_TASK_TLS_LIMIT != 0)
+    UINTPTR                     auvTaskTls [LOSCFG_TASK_TLS_LIMIT];
+#endif
 } LOS_TASK_CB;
 
 typedef struct stLosTask
@@ -611,6 +614,10 @@ extern VOID osTaskWake(LOS_TASK_CB *pstResumedTask, UINT32 uwTaskStatus);
  * @since Huawei LiteOS V100R001C00
  */
 extern UINT32 osGetTaskWaterLine(UINT32 uwTaskID);
+
+
+extern VOID LOS_Schedule(VOID);
+
 
 #ifdef __cplusplus
 #if __cplusplus

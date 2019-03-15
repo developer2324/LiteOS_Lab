@@ -39,8 +39,6 @@ static bool_t __close_echo(void)
 {
     bool_t ret = false;
     s32_t  resplen;
-    s32_t  argc = 6;
-    char*  argv[6];
     const char *cmd = "ate0\r";
     u8_t respbuf[64];
     
@@ -58,8 +56,6 @@ static bool_t __open_network(void)
 {
     bool_t ret = false;
     s32_t  resplen;
-    s32_t  argc = 6;
-    char*  argv[6];
     const char *cmd = "at+netopen\r";
     u8_t respbuf[64];
     
@@ -71,34 +67,11 @@ static bool_t __open_network(void)
     }
     return ret;
 }
-static bool_t __csq_get(s32_t *signal,s32_t *ber)
-{
-    bool_t ret = false;
-    s32_t  resplen;
-    s32_t  argc = 6;
-    char*  argv[6];
-    const char *cmd = "at+csq\r";
-    u8_t respbuf[64];
-    
-    memset(respbuf, 0,64);
-    resplen = at_command((u8_t *)cmd,strlen(cmd),"+CSQ",respbuf,64,1000);
-    if(resplen > 0)
-    {
-        argc = string_split((char *)respbuf,"\r\n",argv,argc);
-        if((argc > 0)&&(0 == strcmp(argv[argc-1],"OK")))
-        {
-            sscanf(argv[argc-2],"+CSQ: %d,%d",signal,ber);
-            ret = true;
-        }
-    }
-    return ret;
-}
+
 static bool_t __cpin_check(void)  //return true ,read get else failed
 {
     bool_t ret = false;
     s32_t  resplen;
-    s32_t  argc = 6;
-    char*  argv[6];
     const char *cmd = "at+cpin?\r";
     u8_t respbuf[64];
     
@@ -114,8 +87,6 @@ static bool_t __cgatt_check(void)  //return true ,read get else failed
 {
     bool_t ret = false;
     s32_t  resplen;
-    s32_t  argc = 6;
-    char*  argv[6];
     const char *cmd = "at+cgatt?\r";
     u8_t respbuf[64];
         
@@ -142,7 +113,7 @@ struct socket_item
 };
 static struct socket_item *g_socket_cb[cn_5320e_socket_max];
 
-//not support udp yet
+//not support tcp yet
 static s32_t socket_connect(const char* host, const char* port, int proto)
 {
     u8_t cmdbuf[64];
@@ -350,7 +321,6 @@ static void  __push_data(char *host, u8_t *data, s32_t datalen)
 static s32_t handler_rcvdata(u8_t *buf,s32_t len)
 {
     s32_t  ret = 0;
-    s32_t  cmplen;
     char  *cmpaddr;
     char  *host;
     u8_t  *data;

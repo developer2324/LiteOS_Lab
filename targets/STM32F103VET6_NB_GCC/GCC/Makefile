@@ -42,10 +42,9 @@ BIN       = $(OBJCOPY) -O binary -S
 #######################################
 
 
-PROJECTBASE = $(PWD)
-override PROJECTBASE    := $(abspath $(PROJECTBASE))
-TOP_DIR = $(PROJECTBASE)/../../..
-
+PROJECTBASE = $(abspath $(CURDIR))
+TOP_DIR_TMP = $(abspath $(PROJECTBASE)/../../..)
+TOP_DIR     = $(abspath $(TOP_DIR_TMP))
 
 
 # firmware library path
@@ -64,7 +63,9 @@ KERNEL_SRC =  \
         ${wildcard $(TOP_DIR)/kernel/base/ipc/*.c} \
         ${wildcard $(TOP_DIR)/kernel/base/mem/bestfit_little/*.c} \
         ${wildcard $(TOP_DIR)/kernel/base/mem/membox/*.c} \
-        ${wildcard $(TOP_DIR)/kernel/base/mem/common/*.c} \
+        ${wildcard $(TOP_DIR)/kernel/base/mem/common/los_slab.c} \
+	  ${wildcard $(TOP_DIR)/kernel/base/mem/common/los_slabmem.c} \
+	  ${wildcard $(TOP_DIR)/kernel/base/mem/common/los_memcheck.c} \
         ${wildcard $(TOP_DIR)/kernel/base/misc/*.c} \
         ${wildcard $(TOP_DIR)/kernel/base/om/*.c} \
         ${wildcard $(TOP_DIR)/kernel/extended/tickless/*.c}
@@ -74,7 +75,8 @@ CMSIS_SRC =  \
         C_SOURCES += $(CMSIS_SRC)
 
 ARCH_SRC =  \
-        ${wildcard $(TOP_DIR)/arch/arm/arm-m/src/*.c}
+        ${wildcard $(TOP_DIR)/arch/arm/arm-m/src/*.c} \
+        ${wildcard $(TOP_DIR)/arch/arm/arm-m/armv7-m/*.c}
         C_SOURCES += $(ARCH_SRC)
 HAL_DRIVER_SRC =  \
         $(TOP_DIR)/targets/STM32F103VET6_NB_GCC/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_tim_ex.c  \
@@ -87,9 +89,9 @@ HAL_DRIVER_SRC =  \
         $(TOP_DIR)/targets/STM32F103VET6_NB_GCC/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash.c \
         $(TOP_DIR)/targets/STM32F103VET6_NB_GCC/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash_ex.c \
         $(TOP_DIR)/targets/STM32F103VET6_NB_GCC/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_tim.c \
-        $(TOP_DIR)/targets/STM32F103VET6_NB_GCC/Drivers/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc_ex.c \
+        $(TOP_DIR)/targets/STM32F103VET6_NB_GCC/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc_ex.c \
         $(TOP_DIR)/targets/STM32F103VET6_NB_GCC/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc.c \
-        $(TOP_DIR)/targets/STM32F103VET6_NB_GCC/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_dma.c \
+        $(TOP_DIR)/targets/STM32F103VET6_NB_GCC/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_dma.c
         
 
         C_SOURCES += $(HAL_DRIVER_SRC)
@@ -124,7 +126,7 @@ ASM_SOURCES_s =  \
         ${wildcard $(PROJECTBASE)/startup_stm32f103xe.s}
 
 ASM_SOURCES_S =  \
-       ${wildcard $(TOP_DIR)/arch/arm/arm-m/cortex-m3/gcc/los_dispatch_gcc.S}
+       ${wildcard $(TOP_DIR)/arch/arm/arm-m/armv7-m/gcc/los_dispatch.S}
 
 ######################################
 # firmware library
@@ -182,6 +184,10 @@ USER_INC = \
         -I $(TOP_DIR)/targets/STM32F103VET6_NB_GCC/OS_CONFIG
         C_INCLUDES += $(USER_INC)
 
+CMSIS_INC = \
+        -I $(TOP_DIR)/include/osdepends/liteos 
+        C_INCLUDES += $(CMSIS_INC)
+
 
 HAL_DRIVER_INC = \
         -I $(TOP_DIR)/targets/STM32F103VET6_NB_GCC/Drivers/STM32F1xx_HAL_Driver/Inc \
@@ -191,8 +197,13 @@ HAL_DRIVER_INC = \
 
 ARCH_INC = \
         -I $(TOP_DIR)/arch/arm/arm-m/include \
-	-I $(TOP_DIR)/arch/arm/common/cmsis
+	-I $(TOP_DIR)/arch/arm/common/cmsis \
+	-I $(TOP_DIR)/arch/arm/arm-m/armv7-m
         C_INCLUDES += $(ARCH_INC)
+
+LITEOS_CMSIS = \
+        -I $(TOP_DIR)/osdepends/liteos/cmsis
+        C_INCLUDES += $(LITEOS_CMSIS)
 
 # compile gcc flags
 ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
@@ -203,9 +214,11 @@ ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2
 endif
 
-
 # Generate dependency information
 CFLAGS += -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)"
+
+# excluded unnecessary warnings
+CFLAGS += -Wno-missing-braces
 
 
 #######################################

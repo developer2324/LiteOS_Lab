@@ -37,7 +37,8 @@
 #include <osport.h>
 #include <los_memory.h>
 
-
+//malloc and free function now implement by the libc
+/*
 void *malloc(int size)
 {
     void *ret = NULL;
@@ -50,14 +51,9 @@ void *malloc(int size)
     return ret;
 }
 
-bool_t free(void *addr)
+void free(void *addr)
 {
-    if(LOS_OK == LOS_MemFree(m_aucSysMem0,addr))
-    {
-        return true;
-    }
-    else
-    {
-        return false; 
-    }
+	LOS_MemFree(m_aucSysMem0,addr);
 }
+
+*/

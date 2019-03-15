@@ -433,16 +433,16 @@ LITE_OS_SEC_TEXT_MINOR UINT32 osGetAllTskInfo(VOID)
     LOS_TaskUnlock();
 #endif
 
-    PRINT_ERR("\r\nName                          TID    Priority   Status       StackSize    WaterLine    StackPoint  TopOfStack   EventMask  SemID");/*lint !e515*/
+    PRINTK("\r\nName            TID    Priority   Status       StackSize    WaterLine    StackPoint  TopOfStack   EventMask  SemID");/*lint !e515*/
 #if (LOSCFG_BASE_CORE_CPUP == YES)
     PRINT_ERR(" CPUUSE   CPUUSE10s  CPUUSE1s  ");/*lint !e515*/
 #endif /* LOSCFG_BASE_CORE_CPUP */
-    PRINT_ERR("\n");/*lint !e515*/
-    PRINT_ERR("----                          ---    --------   --------     ---------    ----------   ----------  ----------   ---------  -----");/*lint !e515*/
+    PRINTK("\n\r");/*lint !e515*/
+    PRINTK("----            ---    --------   --------     ---------    ----------   ----------  ----------   ---------  -----");/*lint !e515*/
 #if (LOSCFG_BASE_CORE_CPUP == YES)
     PRINT_ERR("  ------- ---------  ---------");/*lint !e515*/
 #endif /* LOSCFG_BASE_CORE_CPUP */
-    PRINT_ERR("\n");/*lint !e515*/
+    PRINTK("\n\r");/*lint !e515*/
 
     for (uwLoop = 0; uwLoop < g_uwTskMaxNum; uwLoop++)
     {
@@ -454,7 +454,7 @@ LITE_OS_SEC_TEXT_MINOR UINT32 osGetAllTskInfo(VOID)
             continue;
         }
 
-        PRINT_ERR("%-30s, 0x%-5x, %-11d, %-13s, 0x%-11x, 0x%-11x, 0x%-10x, 0x%-11x, 0x%-9x",
+        PRINTK("%-16s0x%-5x%-11d%-13s0x%-11x0x%-11x0x%-10x0x%-11x0x%-9x",
                           pstTaskCB->pcTaskName,
                           pstTaskCB->uwTaskID,
                           pstTaskCB->usPriority,
@@ -467,11 +467,11 @@ LITE_OS_SEC_TEXT_MINOR UINT32 osGetAllTskInfo(VOID)
 
         if (pstTaskCB->pTaskSem != NULL)
         {
-            PRINT_ERR("0x%-7x", ((SEM_CB_S *)pstTaskCB->pTaskSem)->usSemID);/*lint !e516*/
+            PRINTK("0x%-7x", ((SEM_CB_S *)pstTaskCB->pTaskSem)->usSemID);/*lint !e516*/
         }
         else
         {
-            PRINT_ERR("0x%-7x", 0xFFFF);
+            PRINTK("0x%-7x", 0xFFFF);
         }
 
 #if (LOSCFG_BASE_CORE_CPUP == YES)
@@ -485,7 +485,7 @@ LITE_OS_SEC_TEXT_MINOR UINT32 osGetAllTskInfo(VOID)
                           pstCpu1s[pstTaskCB->uwTaskID].uwUsage / LOS_CPUP_PRECISION_MULT,
                           pstCpu1s[pstTaskCB->uwTaskID].uwUsage % LOS_CPUP_PRECISION_MULT);/*lint !e515 !e516*/
 #endif /* LOSCFG_BASE_CORE_CPUP */
-        PRINT_ERR("\n");/*lint !e515*/
+        PRINTK("\r\n");/*lint !e515*/
     }
 
 #if (LOSCFG_BASE_CORE_CPUP == YES)
@@ -512,7 +512,11 @@ LITE_OS_SEC_TEXT_INIT UINT32 osTaskInit(VOID)
 
 #if (LOSCFG_STATIC_TASK == NO)
 
-    uwSize = (g_uwTskMaxNum) * sizeof(LOS_TASK_CB);
+    /*
+     * allocate (g_uwTskMaxNum + 1) tcbs because, LOS_TaskDelete will use g_pstTaskCBArray [g_uwTskMaxNum] derectlly !
+     */
+
+    uwSize = (g_uwTskMaxNum + 1) * sizeof(LOS_TASK_CB);
     g_pstTaskCBArray = (LOS_TASK_CB *)LOS_MemAlloc(m_aucSysMem0, uwSize);
     if (NULL == g_pstTaskCBArray)
     {
@@ -810,7 +814,6 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskCreateOnly(UINT32 *puwTaskID, TSK_INIT_PARA
     UINT32 uwTaskID = 0;
     UINTPTR uvIntSave;
     VOID  *pTopStack;
-    VOID  *pStackPtr;
     LOS_TASK_CB *pstTaskCB;
     UINT32 uwErrRet = OS_ERROR;
 
@@ -843,11 +846,6 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskCreateOnly(UINT32 *puwTaskID, TSK_INIT_PARA
         && (pstInitParam->pfnTaskEntry != OS_IDLE_TASK_ENTRY))
     {
         return LOS_ERRNO_TSK_PRIOR_ERROR;
-    }
-
-    if (pstInitParam->uwStackSize > OS_SYS_MEM_SIZE)
-    {
-        return LOS_ERRNO_TSK_STKSZ_TOO_LARGE;
     }
 
     if (0 == pstInitParam->uwStackSize)
@@ -1721,6 +1719,93 @@ LITE_OS_SEC_TEXT VOID *osTaskHeapGet(VOID)
 
     return pPool;
 }
+#endif
+
+#if (LOSCFG_TASK_TLS_LIMIT != 0)
+/*****************************************************************************
+ Function : LOS_TaskTlsSet
+ Description : set the TLS data of a task
+ Input       : None
+ Output      : None
+ Return      : None
+ *****************************************************************************/
+UINT32 LOS_TaskTlsSet(UINT32 uwTaskID, UINT32 uwIdx, UINTPTR uvTls)
+{
+    UINTPTR      uvIntSave;
+    LOS_TASK_CB *pstTaskCB;
+    UINT32       ret;
+
+    if (uwIdx >= LOSCFG_TASK_TLS_LIMIT)
+    {
+        return LOS_ERRNO_TSK_TLS_IDX_INVALID;
+    }
+
+    if (uwTaskID > LOSCFG_BASE_CORE_TSK_LIMIT)
+    {
+        return LOS_ERRNO_TSK_ID_INVALID;
+    }
+
+    uvIntSave = LOS_IntLock();
+
+    pstTaskCB = OS_TCB_FROM_TID(uwTaskID);
+
+    if (OS_TASK_STATUS_UNUSED & pstTaskCB->usTaskStatus)
+    {
+        ret = LOS_ERRNO_TSK_NOT_CREATED;
+    }
+    else
+    {
+        pstTaskCB->auvTaskTls[uwIdx] = uvTls;
+        ret = LOS_OK;
+    }
+
+    LOS_IntRestore(uvIntSave);
+
+    return ret;
+}
+
+/*****************************************************************************
+ Function : LOS_TaskTlsGet
+ Description : get the TLS data of a task
+ Input       : None
+ Output      : None
+ Return      : None
+ *****************************************************************************/
+UINT32 LOS_TaskTlsGet(UINT32 uwTaskID, UINT32 uwIdx, UINTPTR * puvTls)
+{
+    UINTPTR      uvIntSave;
+    LOS_TASK_CB *pstTaskCB;
+    UINT32       ret;
+
+    if (uwIdx >= LOSCFG_TASK_TLS_LIMIT)
+    {
+        return LOS_ERRNO_TSK_TLS_IDX_INVALID;
+    }
+
+    if (uwTaskID > LOSCFG_BASE_CORE_TSK_LIMIT)
+    {
+        return LOS_ERRNO_TSK_ID_INVALID;
+    }
+
+    uvIntSave = LOS_IntLock();
+
+    pstTaskCB = OS_TCB_FROM_TID(uwTaskID);
+
+    if (OS_TASK_STATUS_UNUSED & pstTaskCB->usTaskStatus)
+    {
+        ret = LOS_ERRNO_TSK_NOT_CREATED;
+    }
+    else
+    {
+        *puvTls = pstTaskCB->auvTaskTls[uwIdx];
+        ret = LOS_OK;
+    }
+
+    LOS_IntRestore(uvIntSave);
+
+    return ret;
+}
+
 #endif
 
 #ifdef __cplusplus
